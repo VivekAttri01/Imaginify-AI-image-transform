@@ -224,15 +224,155 @@
 
 // export default Checkout;
 
+// "use client";
+
+// import { useEffect } from "react";
+// import { useToast } from "@/components/ui/use-toast";
+// import { checkoutCredits } from "@/lib/actions/transaction.action";
+
+// import { Button } from "../ui/button";
+
+// // Define RazorpayOrder interface to type the order response
+// interface RazorpayOrder {
+//   id: string;
+//   amount: number;
+// }
+
+// const Checkout = ({
+//   plan,
+//   amount,
+//   credits,
+//   buyerId,
+// }: {
+//   plan: string;
+//   amount: number;
+//   credits: number;
+//   buyerId: string;
+// }) => {
+//   const { toast } = useToast();
+
+//   useEffect(() => {
+//     const query = new URLSearchParams(window.location.search);
+//     if (query.get("success")) {
+//       toast({
+//         title: "Order placed!",
+//         description: "You will receive an email confirmation",
+//         duration: 5000,
+//         className: "success-toast",
+//       });
+//     }
+
+//     if (query.get("canceled")) {
+//       toast({
+//         title: "Order canceled!",
+//         description: "Continue to shop around and checkout when you're ready",
+//         duration: 5000,
+//         className: "error-toast",
+//       });
+//     }
+//   }, [toast]);  // Add 'toast' to the dependency array
+
+//   const onCheckout = async () => {
+//     const transaction = {
+//       plan,
+//       amount,
+//       credits,
+//       buyerId,
+//     };
+
+//     try {
+//       const order = await checkoutCredits(transaction);
+
+//       if (order && (order as RazorpayOrder).id) {  // Ensure the response is an order
+//         const options = {
+//           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+//           amount: (order as RazorpayOrder).amount,
+//           currency: "INR",
+//           name: "Your Company Name",
+//           description: `Purchase ${credits} Credits`,
+//           order_id: (order as RazorpayOrder).id,
+//           handler: async function (response: any) {
+//             const paymentData = {
+//               razorpay_order_id: response.razorpay_order_id,
+//               razorpay_payment_id: response.razorpay_payment_id,
+//               razorpay_signature: response.razorpay_signature,
+//               transaction,
+//             };
+
+//             const verifyRes = await fetch("/api/razorpay/verify", {
+//               method: "POST",
+//               headers: { "Content-Type": "application/json" },
+//               body: JSON.stringify(paymentData),
+//             });
+
+//             if (verifyRes.ok) {
+//               toast({
+//                 title: "Payment Successful!",
+//                 description: "Your credits have been added.",
+//                 duration: 5000,
+//                 className: "success-toast",
+//               });
+//             } else {
+//               toast({
+//                 title: "Payment Failed!",
+//                 description: "Something went wrong. Please try again.",
+//                 duration: 5000,
+//                 className: "error-toast",
+//               });
+//             }
+//           },
+//           prefill: {
+//             name: "Your Name",
+//             email: "your-email@example.com",
+//           },
+//           theme: {
+//             color: "#3399cc",
+//           },
+//         };
+
+//         const razorpay = new (window as any).Razorpay(options);
+//         razorpay.open();
+//       } else {
+//         toast({
+//           title: "Order Creation Failed!",
+//           description: "Please try again later.",
+//           duration: 5000,
+//           className: "error-toast",
+//         });
+//       }
+//     } catch (error) {
+//       toast({
+//         title: "Error!",
+//         description: "Something went wrong during checkout.",
+//         duration: 5000,
+//         className: "error-toast",
+//       });
+//     }
+//   };
+
+//   return (
+//     <section>
+//       <Button
+//         onClick={onCheckout}
+//         className="w-full rounded-full bg-purple-gradient bg-cover"
+//       >
+//         Buy Credit
+//       </Button>
+//     </section>
+//   );
+// };
+
+// export default Checkout;
+
+
 "use client";
 
 import { useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { checkoutCredits } from "@/lib/actions/transaction.action";
-
 import { Button } from "../ui/button";
 
-// Define RazorpayOrder interface to type the order response
+// Define the Razorpay order interface for typing the response.
 interface RazorpayOrder {
   id: string;
   amount: number;
@@ -261,7 +401,6 @@ const Checkout = ({
         className: "success-toast",
       });
     }
-
     if (query.get("canceled")) {
       toast({
         title: "Order canceled!",
@@ -270,20 +409,15 @@ const Checkout = ({
         className: "error-toast",
       });
     }
-  }, [toast]);  // Add 'toast' to the dependency array
+  }, [toast]);
 
   const onCheckout = async () => {
-    const transaction = {
-      plan,
-      amount,
-      credits,
-      buyerId,
-    };
+    const transaction = { plan, amount, credits, buyerId };
 
     try {
       const order = await checkoutCredits(transaction);
 
-      if (order && (order as RazorpayOrder).id) {  // Ensure the response is an order
+      if (order && (order as RazorpayOrder).id) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
           amount: (order as RazorpayOrder).amount,
@@ -292,13 +426,19 @@ const Checkout = ({
           description: `Purchase ${credits} Credits`,
           order_id: (order as RazorpayOrder).id,
           handler: async function (response: any) {
+            // Build the data to verify payment
             const paymentData = {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              transaction,
+              // Pass the original transaction details
+              buyerId,
+              credits,
+              plan,
+              amount,
             };
 
+            // Call the verification endpoint to process the transaction and update credits.
             const verifyRes = await fetch("/api/razorpay/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -352,10 +492,7 @@ const Checkout = ({
 
   return (
     <section>
-      <Button
-        onClick={onCheckout}
-        className="w-full rounded-full bg-purple-gradient bg-cover"
-      >
+      <Button onClick={onCheckout} className="w-full rounded-full bg-purple-gradient bg-cover">
         Buy Credit
       </Button>
     </section>
