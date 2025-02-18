@@ -206,7 +206,6 @@
 //   }
 // }
 
-
 "use server";
 
 import Razorpay from "razorpay";
@@ -225,8 +224,7 @@ export interface CheckoutTransactionParams {
 }
 
 export interface CreateTransactionParams {
-  stripeId: string; // For Razorpay orders, use an empty string or placeholder.
-  razorpayId?: string;
+  stripeId: string; // For Razorpay, we use a placeholder
   amount: number;
   plan: string;
   credits: number;
@@ -236,32 +234,36 @@ export interface CreateTransactionParams {
 
 // --- Initialize Razorpay instance ---
 const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!, // Public key (client-safe)
-  key_secret: process.env.RAZORPAY_KEY_SECRET!, // Secret key (server-only)
+  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-// --- Function to create a Razorpay order (checkout process) ---
-export async function checkoutCredits(transaction: CheckoutTransactionParams) {
+// Create a Razorpay order
+export async function checkoutCredits(
+  transaction: CheckoutTransactionParams
+) {
   try {
+    await connectToDatabase();
     const amountPaise = Number(transaction.amount) * 100; // Convert INR to paise
     const order = await razorpay.orders.create({
       amount: amountPaise,
       currency: "INR",
-      receipt: `receipt_${Date.now()}`,
+      receipt: `order_receipt_${Date.now()}`,
       notes: {
         plan: transaction.plan,
         credits: transaction.credits,
         buyerId: transaction.buyerId,
       },
     });
-    return order; // Order object from Razorpay (includes order.id, amount, etc.)
+    return order; // Returns the order object from Razorpay
   } catch (error) {
+    console.error("Error in checkoutCredits:", error);
     handleError(error);
     return { error: "Failed to create Razorpay order" };
   }
 }
 
-// --- Function to verify Razorpay payment and store transaction in DB ---
+// Verify payment and process the transaction
 export async function processTransaction(paymentData: {
   razorpay_order_id: string;
   razorpay_payment_id: string;
@@ -271,7 +273,7 @@ export async function processTransaction(paymentData: {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, transaction } = paymentData;
 
-    // Verify payment signature using the secret key (same key used for order creation)
+    // Generate the expected signature using the secret key
     const generated_signature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -283,7 +285,7 @@ export async function processTransaction(paymentData: {
 
     await connectToDatabase();
 
-    // Create the transaction document in MongoDB
+    // Create the transaction record in the database
     const newTransaction = await Transaction.create({
       ...transaction,
       buyer: transaction.buyerId,
@@ -292,11 +294,12 @@ export async function processTransaction(paymentData: {
       razorpay_signature,
     });
 
-    // Update the user's credit balance (updateCredits should update your User model)
+    // Update the user's credit balance
     await updateCredits(transaction.buyerId, transaction.credits);
 
     return JSON.parse(JSON.stringify(newTransaction));
   } catch (error) {
+    console.error("Error in processTransaction:", error);
     handleError(error);
     return { error: "Transaction processing failed" };
   }

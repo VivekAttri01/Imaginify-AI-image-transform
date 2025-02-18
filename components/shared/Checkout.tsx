@@ -364,7 +364,6 @@
 
 // export default Checkout;
 
-
 "use client";
 
 import { useEffect } from "react";
@@ -372,7 +371,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { checkoutCredits } from "@/lib/actions/transaction.action";
 import { Button } from "../ui/button";
 
-// Define the Razorpay order interface for typing the response.
+// Define the expected Razorpay order response interface
 interface RazorpayOrder {
   id: string;
   amount: number;
@@ -404,7 +403,7 @@ const Checkout = ({
     if (query.get("canceled")) {
       toast({
         title: "Order canceled!",
-        description: "Continue to shop around and checkout when you're ready",
+        description: "Please try again later.",
         duration: 5000,
         className: "error-toast",
       });
@@ -416,29 +415,27 @@ const Checkout = ({
 
     try {
       const order = await checkoutCredits(transaction);
-
       if (order && (order as RazorpayOrder).id) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-          amount: (order as RazorpayOrder).amount,
+          amount: (order as RazorpayOrder).amount, // in paise
           currency: "INR",
           name: "Your Company Name",
           description: `Purchase ${credits} Credits`,
           order_id: (order as RazorpayOrder).id,
           handler: async function (response: any) {
-            // Build the data to verify payment
+            // Build payment data to send for verification
             const paymentData = {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              // Pass the original transaction details
               buyerId,
               credits,
               plan,
-              amount,
+              amount, // Pass the original amount in INR
             };
 
-            // Call the verification endpoint to process the transaction and update credits.
+            // Call the verification endpoint
             const verifyRes = await fetch("/api/razorpay/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -481,6 +478,7 @@ const Checkout = ({
         });
       }
     } catch (error) {
+      console.error("Checkout error:", error);
       toast({
         title: "Error!",
         description: "Something went wrong during checkout.",

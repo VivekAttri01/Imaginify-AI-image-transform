@@ -43,7 +43,6 @@
 //   }
 // }
 
-
 /* eslint-disable camelcase */
 import { processTransaction } from "@/lib/actions/transaction.action";
 import { NextResponse } from "next/server";
@@ -51,29 +50,26 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
-    const { 
-      razorpay_payment_id, 
-      razorpay_order_id, 
-      razorpay_signature, 
-      buyerId, 
-      credits, 
-      plan, 
-      amount 
+    const {
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature,
+      buyerId,
+      credits,
+      plan,
+      amount, // Amount in INR (as originally passed from client)
     } = body;
 
-    // Build the transaction details.
+    // Build the transaction data. For Razorpay, we use an empty string for stripeId.
     const transactionData = {
-      stripeId: "", // Use an empty string or a placeholder as Razorpay doesn't use stripeId.
-      razorpayId: razorpay_payment_id,
-      amount: amount ? amount / 100 : 0, // Convert paise back to INR if needed.
+      stripeId: `razorpay_${Date.now()}`, // Generate a unique placeholder
+      amount: amount, // In INR
       plan: plan || "",
       credits: Number(credits) || 0,
       buyerId: buyerId || "",
       createdAt: new Date(),
     };
 
-    // Package the data for processTransaction.
     const processData = {
       razorpay_order_id,
       razorpay_payment_id,
@@ -82,9 +78,9 @@ export async function POST(request: Request) {
     };
 
     const newTransaction = await processTransaction(processData);
-
     return NextResponse.json({ message: "OK", transaction: newTransaction });
   } catch (error) {
+    console.error("Error in verify endpoint:", error);
     return NextResponse.json({ message: "Payment verification error", error }, { status: 500 });
   }
 }
