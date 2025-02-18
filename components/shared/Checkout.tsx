@@ -362,14 +362,178 @@
 //   );
 // };
 
+// // export default Checkout;
+// "use client";
+
+// import { useEffect } from "react";
+// import Script from "next/script";
+// import { useToast } from "@/components/ui/use-toast";
+// import { checkoutCredits } from "@/lib/actions/transaction.action";
+// import { Button } from "../ui/button";
+
+// // Define the expected Razorpay order response interface
+// interface RazorpayOrder {
+//   id: string;
+//   amount: number;
+// }
+
+// const Checkout = ({
+//   plan,
+//   amount,
+//   credits,
+//   buyerId,
+// }: {
+//   plan: string;
+//   amount: number;
+//   credits: number;
+//   buyerId: string;
+// }) => {
+//   const { toast } = useToast();
+
+//   useEffect(() => {
+//     const query = new URLSearchParams(window.location.search);
+//     if (query.get("success")) {
+//       toast({
+//         title: "Order placed!",
+//         description: "You will receive an email confirmation",
+//         duration: 5000,
+//         className: "success-toast",
+//       });
+//     }
+//     if (query.get("canceled")) {
+//       toast({
+//         title: "Order canceled!",
+//         description: "Please try again later.",
+//         duration: 5000,
+//         className: "error-toast",
+//       });
+//     }
+//   }, [toast]);
+
+//   const onCheckout = async () => {
+//     const transaction = { plan, amount, credits, buyerId };
+
+//     try {
+//       const order = await checkoutCredits(transaction);
+//       if (order && (order as RazorpayOrder).id) {
+//         const options = {
+//           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+//           amount: (order as RazorpayOrder).amount, // in paise
+//           currency: "INR",
+//           name: "Your Company Name",
+//           description: `Purchase ${credits} Credits`,
+//           order_id: (order as RazorpayOrder).id,
+//           handler: async function (response: any) {
+//             // Build payment data to send for verification
+//             const paymentData = {
+//               razorpay_order_id: response.razorpay_order_id,
+//               razorpay_payment_id: response.razorpay_payment_id,
+//               razorpay_signature: response.razorpay_signature,
+//               buyerId,
+//               credits,
+//               plan,
+//               amount, // Pass the original amount in INR
+//             };
+
+//             // Call the verification endpoint
+//             const verifyRes = await fetch("/api/razorpay/verify", {
+//               method: "POST",
+//               headers: { "Content-Type": "application/json" },
+//               body: JSON.stringify(paymentData),
+//             });
+
+//             if (verifyRes.ok) {
+//               toast({
+//                 title: "Payment Successful!",
+//                 description: "Your credits have been added.",
+//                 duration: 5000,
+//                 className: "success-toast",
+//               });
+//             } else {
+//               toast({
+//                 title: "Payment Failed!",
+//                 description: "Something went wrong. Please try again.",
+//                 duration: 5000,
+//                 className: "error-toast",
+//               });
+//             }
+//           },
+//           prefill: {
+//             name: "Your Name",
+//             email: "your-email@example.com",
+//           },
+//           theme: {
+//             color: "#3399cc",
+//           },
+//         };
+
+//         // Ensure that the Razorpay script is loaded
+//         if (typeof window.Razorpay === "undefined") {
+//           toast({
+//             title: "Error!",
+//             description: "Razorpay script failed to load. Please try again.",
+//             duration: 5000,
+//             className: "error-toast",
+//           });
+//           return;
+//         }
+//         const razorpay = new window.Razorpay(options);
+//         razorpay.open();
+//       } else {
+//         toast({
+//           title: "Order Creation Failed!",
+//           description: "Please try again later.",
+//           duration: 5000,
+//           className: "error-toast",
+//         });
+//       }
+//     } catch (error) {
+//       console.error("Checkout error:", error);
+//       toast({
+//         title: "Error!",
+//         description: "Something went wrong during checkout.",
+//         duration: 5000,
+//         className: "error-toast",
+//       });
+//     }
+//   };
+
+//   return (
+//     <>
+//       {/* Load the Razorpay checkout script */}
+//       <Script
+//         src="https://checkout.razorpay.com/v1/checkout.js"
+//         strategy="beforeInteractive"
+//       />
+//       <section>
+//         <Button
+//           onClick={onCheckout}
+//           className="w-full rounded-full bg-purple-gradient bg-cover"
+//         >
+//           Buy Credit
+//         </Button>
+//       </section>
+//     </>
+//   );
+// };
+
 // export default Checkout;
+
 
 "use client";
 
 import { useEffect } from "react";
+import Script from "next/script";
 import { useToast } from "@/components/ui/use-toast";
 import { checkoutCredits } from "@/lib/actions/transaction.action";
 import { Button } from "../ui/button";
+
+// Extend the Window interface to include Razorpay
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 // Define the expected Razorpay order response interface
 interface RazorpayOrder {
@@ -467,7 +631,17 @@ const Checkout = ({
           },
         };
 
-        const razorpay = new (window as any).Razorpay(options);
+        // Ensure that the Razorpay script is loaded
+        if (typeof window.Razorpay === "undefined") {
+          toast({
+            title: "Error!",
+            description: "Razorpay script failed to load. Please try again.",
+            duration: 5000,
+            className: "error-toast",
+          });
+          return;
+        }
+        const razorpay = new window.Razorpay(options);
         razorpay.open();
       } else {
         toast({
@@ -489,11 +663,21 @@ const Checkout = ({
   };
 
   return (
-    <section>
-      <Button onClick={onCheckout} className="w-full rounded-full bg-purple-gradient bg-cover">
-        Buy Credit
-      </Button>
-    </section>
+    <>
+      {/* Load the Razorpay checkout script */}
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="afterInteractive" // Changed from 'beforeInteractive' to 'afterInteractive'
+      />
+      <section>
+        <Button
+          onClick={onCheckout}
+          className="w-full rounded-full bg-purple-gradient bg-cover"
+        >
+          Buy Credit
+        </Button>
+      </section>
+    </>
   );
 };
 
